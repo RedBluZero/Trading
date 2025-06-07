@@ -1,0 +1,64 @@
+//@version=5
+strategy("MACD EMA200 Strategy (In Development)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1)
+
+// === Inputs And Data ===
+highestPrice              = math.max(high[1], high[2], high[3], high[4], high[5], high[6], high[7], high[8], high[9], high[10], high[11], high[12], high[13], high[14], high[15])
+lowestPrice               = math.min(low[1], low[2], low[3], low[4], low[5], low[6], low[7], low[8], low[9], low[10], low[11], low[12], low[13], low[14], low[15])
+rrRatio                   = input.float(defval=1.5, title="Risk-Reward Ratio", minval=0.1)
+stopBuffer                = 1.00005
+
+// === Indicators ===
+ema200                    = ta.ema(close, 200)
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+// === Trend Direction ===
+bullTrend                 = close > ema200
+bearTrend                 = close < ema200
+
+// === Trend Filter ===
+// TO DO
+// Filter Entry Based Off Trend Activity, If Trend Is Crabbing, No Trade
+
+// === Distance Filtering ===
+// TO DO
+// Filter Entry Distance Between Entry And Stoploss Location, Either Reduce Stop Distance By 50% Or No Trade, Needing To Decide How I Want To Program This
+
+// === MACD Crosses ===
+macdCrossUp               = ta.crossover(macdLine, signalLine)
+macdCrossDown             = ta.crossunder(macdLine, signalLine)
+
+// === Histogram Logic ===
+histCrossUp               = macdLine > 0 and signalLine > 0
+histCrossDown             = macdLine < 0 and signalLine < 0
+
+// === Entry Conditions ===
+longCondition             = bullTrend and macdCrossUp and histCrossDown
+shortCondition            = bearTrend and macdCrossDown and histCrossUp
+
+// === Entry Conditions ===
+if longCondition
+    longEntryPrice        = close
+    longStopPrice         = lowestPrice / stopBuffer
+    longProfitPrice       = longEntryPrice + ((longEntryPrice - longStopPrice) * rrRatio)
+
+    shortEntryLine        = line.new(x1 = bar_index - 5, y1 = longEntryPrice, x2 = bar_index + 5, y2 = longEntryPrice, color = color.yellow)
+    longStopLine          = line.new(x1 = bar_index - 5, y1 = longStopPrice, x2 = bar_index + 5, y2 = longStopPrice, color = color.red)
+    longProfitLine        = line.new(x1 = bar_index - 5, y1 = longProfitPrice, x2 = bar_index + 5, y2 = longProfitPrice, color = color.green)
+
+    strategy.entry("Long Position", strategy.long)
+    strategy.exit("Long TP/SL", from_entry = "Long Position", stop = longStopPrice, limit = longProfitPrice, comment_profit = "SUCCESS", comment_loss = "FAIL")
+
+if shortCondition
+    shortEntryPrice       = close
+    shortStopPrice        = highestPrice * stopBuffer
+    shortProfitPrice      = shortEntryPrice - ((shortStopPrice - shortEntryPrice) * rrRatio)
+
+    shortEntryLine        = line.new(x1 = bar_index - 5, y1 = shortEntryPrice, x2 = bar_index + 5, y2 = shortEntryPrice, color = color.yellow)
+    shortStopLine         = line.new(x1 = bar_index - 5, y1 = shortStopPrice, x2 = bar_index + 5, y2 = shortStopPrice, color = color.red)
+    shortProfitLine       = line.new(x1 = bar_index - 5, y1 = shortProfitPrice, x2 = bar_index + 5, y2 = shortProfitPrice, color = color.green)
+    
+    strategy.entry("Short Position", strategy.short)
+    strategy.exit("Short TP/SL", from_entry = "Short Position", stop = shortStopPrice, limit = shortProfitPrice)
+
+// === Visuals ===
+plot(ema200, color        = color.orange, title = "EMA 200")
